@@ -1,9 +1,6 @@
-
 version: 0.2
-
 env:
   shell: bash
-
 phases:
   install:
     runtime-versions:
@@ -14,7 +11,6 @@ phases:
       - pip install pytest
       - curl -fsSL -o /tmp/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-6.2.1.4610-linux-x64.zip
       - unzip -q /tmp/sonar-scanner.zip -d /opt
-
   pre_build:
     commands:
       - |
