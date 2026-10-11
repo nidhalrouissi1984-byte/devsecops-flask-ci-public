@@ -1,7 +1,9 @@
 
 from flask import Flask, request, jsonify
 import sqlite3
-API_KEY= "AKIAIOSFODNN7EXAMPLE"
+
+AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE"
+
 app = Flask(__name__)
 
 @app.route("/")
