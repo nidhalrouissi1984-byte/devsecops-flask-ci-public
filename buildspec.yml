@@ -6,17 +6,32 @@ phases:
     runtime-versions:
       python: 3.11
     commands:
+      - echo "Installing Python dependencies"
       - pip install -r requirements.txt
+      - pip install pytest
 
   pre_build:
     commands:
-      - echo "Running functional tests"
+      - echo "Installing Gitleaks"
+      - |
+        GITLEAKS_VERSION="8.24.2"
+        curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o /tmp/gitleaks.tar.gz
+        tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+        install /tmp/gitleaks /usr/local/bin/gitleaks
+      - echo "Scanning repository for secrets"
+      - gitleaks detect --source . --no-git --redact --exit-code 1
 
   build:
     commands:
-      - python -m compileall -q app.py
+      - echo "Running Flask tests"
       - python -m pytest -v
 
   post_build:
     commands:
-      - echo "Functional tests completed successfully"
+      - echo "Tests and security checks completed successfully"
+
+artifacts:
+  files:
+    - '**/*'
+  exclude-paths:
+    - '.git/**/*'
