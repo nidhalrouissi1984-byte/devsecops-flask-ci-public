@@ -4,7 +4,7 @@ env:
   shell: bash
   variables:
     # A adapter a votre compte AWS
-    ECR_REPOSITORY: "devsecops-flask"
+    ECR_REPOSITORY: "devsecops-flask-nidhal"
     # v0.69.3 : derniere version saine connue (v0.69.4 etait compromise)
     TRIVY_VERSION: "0.69.3"
     TRIVY_SHA256: "1816b632dfe529869c740c0913e36bd1629cb7688bd5634f4a858c1d57c88b75"
