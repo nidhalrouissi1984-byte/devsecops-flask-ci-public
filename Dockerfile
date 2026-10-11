@@ -7,8 +7,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Dependances d'abord (meilleur cache Docker)
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# requirements.lock : versions figees + empreintes SHA-256 (genere avec pip-compile)
+# --only-binary :all: : uniquement des wheels, aucun script setup.py execute
+# --require-hashes    : pip refuse tout paquet dont l'empreinte ne correspond pas
+COPY requirements.lock .
+RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r requirements.lock
 
 # On copie uniquement le code utile, pas tout le depot
 COPY app.py .
