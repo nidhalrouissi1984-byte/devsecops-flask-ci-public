@@ -1,83 +1,37 @@
 
-version: 0.2
+from flask import Flask, request, jsonify
+import sqlite3
 
-env:
-  shell: bash
+AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7NEXAMPLE"
+DB_PASSWORD = "SuperSecretPassword123!"
 
-phases:
-  install:
-    runtime-versions:
-      python: 3.11
-    commands:
-      - python -m pip install --upgrade pip
-      - pip install -r requirements.txt
-      - pip install pytest
-      - |
-        set -e
-        GITLEAKS_VERSION="8.24.2"
-        curl -sSfL \
-          "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-          -o /tmp/gitleaks.tar.gz
-        tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
-        install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
-        export PATH="/usr/local/bin:$PATH"
-        command -v gitleaks
-        gitleaks version
+app = Flask(__name__)
 
-      - curl -fsSL -o /tmp/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-6.2.1.4610-linux-x64.zip
-      - unzip -q /tmp/sonar-scanner.zip -d /opt
+@app.route("/")
+def home():
+    return "Hello DevSecOps!"
 
-  pre_build:
-    commands:
-      - |
-        set -euo pipefail
+@app.route("/search")
+def search():
+    query = request.args.get("q", "")
+    return jsonify({"results": f"Search results for: {query}"})
 
-        SECRET_JSON="$(aws secretsmanager get-secret-value \
-          --secret-id sonarcloud/token \
-          --query SecretString \
-          --output text)"
+@app.route("/user")
+def get_user():
+    user_id = request.args.get("id", "")
 
-        export SONAR_TOKEN="$(python -c '
-        import json, sys
-        s = sys.stdin.read().strip()
-        try:
-            d = json.loads(s)
-        except json.JSONDecodeError:
-            d = s
+    conn = sqlite3.connect(":memory:")
+    cursor = conn.cursor()
 
-        if isinstance(d, dict):
-            token = d.get("SONAR_TOKEN") or d.get("token")
-            if not token and len(d) == 1:
-                token = next(iter(d.values()))
-        else:
-            token = d
+    cursor.execute("CREATE TABLE users (id INTEGER, name TEXT)")
 
-        if not isinstance(token, str) or not token.strip():
-            sys.exit("SonarCloud token missing or invalid")
-        print(token.strip())
-        ' <<< "$SECRET_JSON")"
+    query = "SELECT * FROM users WHERE id = " + user_id
+    cursor.execute(query)
 
-        test -n "$SONAR_TOKEN"
-        echo "SonarCloud token retrieved successfully"
+    result = cursor.fetchall()
+    conn.close()
 
-  build:
-    commands:
-      - gitleaks detect --source . --no-git --redact --exit-code 1
-      - python -m py_compile app.py
-      - python -m pytest -v
-      - export PATH="/opt/sonar-scanner-6.2.1.4610-linux-x64/bin:$PATH"
-      - |
-        sonar-scanner \
-          -Dsonar.organization=nidhalrouissi1984-byte \
-          -Dsonar.projectKey=nidhalrouissi1984-byte_devsecops-flask-ci-public \
-          -Dsonar.branch.name=feature/vulnerable-test \
-          -Dsonar.sources=. \
-          -Dsonar.tests=tests \
-          -Dsonar.host.url=https://sonarcloud.io \
-          -Dsonar.token="$SONAR_TOKEN" \
-          -Dsonar.qualitygate.wait=true \
-          -Dsonar.exclusions="**/test_*.py,**/__pycache__/**,.venv/**,venv/**"
+    return jsonify(result)
 
-  post_build:
-    commands:
-      - echo "Python tests and SonarCloud analysis completed"
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
