@@ -5,7 +5,7 @@ env:
   variables:
     # A adapter a votre compte AWS
     ECR_REPOSITORY: "devsecops-flask-nidhal"
-    ECS_CLUSTER: "devsecops-cluster"
+    ECS_CLUSTER: "devsecops-flask-task"
     ECS_SERVICE: "devsecops-flask-task-service-zap5h4zm"
     # v0.69.3 : derniere version saine connue (v0.69.4 etait compromise)
     TRIVY_VERSION: "0.69.3"
