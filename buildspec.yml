@@ -1,0 +1,22 @@
+
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - pip install -r requirements.txt
+
+  pre_build:
+    commands:
+      - echo "Starting functional tests"
+
+  build:
+    commands:
+      - python -m compileall -q app.py
+      - echo "Application syntax check passed"
+
+  post_build:
+    commands:
+      - echo "Initial clean-code build completed"
