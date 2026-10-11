@@ -10,13 +10,13 @@ phases:
 
   pre_build:
     commands:
-      - echo "Starting functional tests"
+      - echo "Running functional tests"
 
   build:
     commands:
       - python -m compileall -q app.py
-      - echo "Application syntax check passed"
+      - python -m pytest -v
 
   post_build:
     commands:
-      - echo "Initial clean-code build completed"
+      - echo "Functional tests completed successfully"
