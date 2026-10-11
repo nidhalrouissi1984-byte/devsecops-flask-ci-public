@@ -1,3 +1,4 @@
+
 # Image de base depuis ECR Public (evite les limites de telechargement Docker Hub)
 FROM public.ecr.aws/docker/library/python:3.11-slim
 
@@ -12,6 +13,13 @@ WORKDIR /app
 # --require-hashes    : pip refuse tout paquet dont l'empreinte ne correspond pas
 COPY requirements.lock .
 RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r requirements.lock
+
+# Correctifs de securite du systeme + suppression des outils inutiles en production
+# (pip, setuptools et wheel ne servent qu'a installer : ils sont souvent signales par Trivy)
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m pip uninstall -y pip setuptools wheel
 
 # On copie uniquement le code utile, pas tout le depot
 COPY app.py .
