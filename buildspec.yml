@@ -75,7 +75,7 @@ phases:
       # 1. Secrets
       - gitleaks detect --source . --no-git --verbose --redact
       # 2. SCA : dependances Python
-      - pip-audit -r requirements.txt --desc
+      - pip-audit -r requirements.lock --require-hashes --desc
       # 3. Tests + couverture
       - python -m py_compile app.py
       - python -m pytest -v --cov=. --cov-report=xml
