@@ -5,7 +5,9 @@ env:
   variables:
     # A adapter a votre compte AWS
     ECR_REPOSITORY: "devsecops-flask"
-    TRIVY_VERSION: "0.56.2"
+    # v0.69.3 : derniere version saine connue (v0.69.4 etait compromise)
+    TRIVY_VERSION: "0.69.3"
+    TRIVY_SHA256: "1816b632dfe529869c740c0913e36bd1629cb7688bd5634f4a858c1d57c88b75"
 
 phases:
   install:
@@ -20,6 +22,7 @@ phases:
       - curl -fsSL -o /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz
       - tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
       - curl -fsSL -o /tmp/trivy.tar.gz https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz
+      - echo "${TRIVY_SHA256}  /tmp/trivy.tar.gz" | sha256sum -c -
       - tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy
       - gitleaks version
       - trivy --version
