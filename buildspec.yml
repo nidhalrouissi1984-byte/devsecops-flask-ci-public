@@ -2,7 +2,7 @@
 from flask import Flask, request, jsonify
 import sqlite3
 
-AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7NEXAMPLE"
+AWS_ACCESS_KEY_ID = "AKIAQ7XKZP4MNB3RWT5Y"
 DB_PASSWORD = "SuperSecretPassword123!"
 
 app = Flask(__name__)
