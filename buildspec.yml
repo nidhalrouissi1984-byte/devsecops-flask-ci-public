@@ -1,6 +1,15 @@
 version: 0.2
+
 env:
   shell: bash
+  variables:
+    # A adapter a votre compte AWS
+    ECR_REPOSITORY: "devsecops-flask"
+    ECS_CLUSTER: "devsecops-cluster"
+    ECS_SERVICE: "devsecops-flask-service"
+    CONTAINER_NAME: "devsecops-flask"
+    TRIVY_VERSION: "0.56.2"
+
 phases:
   install:
     runtime-versions:
@@ -8,12 +17,16 @@ phases:
     commands:
       - python -m pip install --upgrade pip
       - pip install -r requirements.txt
-      - pip install pytest
+      - pip install pytest pytest-cov pip-audit
       - curl -fsSL -o /tmp/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-6.2.1.4610-linux-x64.zip
       - unzip -q /tmp/sonar-scanner.zip -d /opt
       - curl -fsSL -o /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz
       - tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+      - curl -fsSL -o /tmp/trivy.tar.gz https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz
+      - tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy
       - gitleaks version
+      - trivy --version
+
   pre_build:
     commands:
       - |
@@ -46,12 +59,27 @@ phases:
 
         test -n "$SONAR_TOKEN"
         echo "SonarCloud token retrieved successfully"
+      - |
+        set -euo pipefail
+        export AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+        export ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+        export IMAGE_TAG="$(echo "${CODEBUILD_RESOLVED_SOURCE_VERSION:-latest}" | cut -c 1-7)"
+        export IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+        aws ecr get-login-password --region "$AWS_DEFAULT_REGION" \
+          | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+        echo "Image cible : $IMAGE_URI"
 
   build:
+    on-failure: ABORT
     commands:
+      # 1. Secrets
       - gitleaks detect --source . --no-git --verbose --redact
+      # 2. SCA : dependances Python
+      - pip-audit -r requirements.txt --desc
+      # 3. Tests + couverture
       - python -m py_compile app.py
-      - python -m pytest -v
+      - python -m pytest -v --cov=. --cov-report=xml
+      # 4. SAST : SonarCloud
       - export PATH="/opt/sonar-scanner-6.2.1.4610-linux-x64/bin:$PATH"
       - |
         sonar-scanner \
@@ -61,9 +89,26 @@ phases:
           -Dsonar.tests=tests \
           -Dsonar.host.url=https://sonarcloud.io \
           -Dsonar.token="$SONAR_TOKEN" \
+          -Dsonar.python.coverage.reportPaths=coverage.xml \
           -Dsonar.qualitygate.wait=true \
           -Dsonar.exclusions="**/test_*.py,**/__pycache__/**,.venv/**,venv/**"
+      # 5. Construction de l'image Docker
+      - docker build -t "$IMAGE_URI" -t "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest" .
+      # 6. SCA : scan de l'image (OS + librairies), bloque sur HIGH/CRITICAL
+      - trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed --no-progress "$IMAGE_URI"
 
   post_build:
     commands:
-      - echo "Gitleaks, Python tests and SonarCloud analysis completed"
+      # 7. Push vers ECR
+      - docker push "$IMAGE_URI"
+      - docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
+      # 8. Fichier pour l'action de deploiement ECS de CodePipeline
+      - printf '[{"name":"%s","imageUri":"%s"}]' "$CONTAINER_NAME" "$IMAGE_URI" > imagedefinitions.json
+      - cat imagedefinitions.json
+      # 9. Deploiement direct sur ECS (si vous n'utilisez pas CodePipeline)
+      - aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --force-new-deployment --query "service.serviceName" --output text
+      - echo "Image $IMAGE_URI poussee dans ECR et service ECS redeploye"
+
+artifacts:
+  files:
+    - imagedefinitions.json
