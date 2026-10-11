@@ -12,8 +12,18 @@ phases:
       - python -m pip install --upgrade pip
       - pip install -r requirements.txt
       - pip install pytest
-      - curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/install.sh | sh -s -- -b /usr/local/bin
-      - gitleaks version
+      - |
+        set -e
+        GITLEAKS_VERSION="8.24.2"
+        curl -sSfL \
+          "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+          -o /tmp/gitleaks.tar.gz
+        tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+        install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+        export PATH="/usr/local/bin:$PATH"
+        command -v gitleaks
+        gitleaks version
+
       - curl -fsSL -o /tmp/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-6.2.1.4610-linux-x64.zip
       - unzip -q /tmp/sonar-scanner.zip -d /opt
 
