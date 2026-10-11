@@ -114,3 +114,18 @@ phases:
       # 9. Attend que les nouvelles taches soient en bonne sante (echoue sinon)
       - aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
       - echo "Deploiement ECS termine"
+      # 10. DAST (CD) : OWASP ZAP attaque l'application deployee sur ECS
+      - |
+        set -euo pipefail
+        TASK_ARN="$(aws ecs list-tasks --cluster "$ECS_CLUSTER" --service-name "$ECS_SERVICE" --desired-status RUNNING --query 'taskArns[0]' --output text)"
+        ENI_ID="$(aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN" --query "tasks[0].attachments[0].details[?name=='networkInterfaceId'].value" --output text)"
+        APP_IP="$(aws ec2 describe-network-interfaces --network-interface-ids "$ENI_ID" --query 'NetworkInterfaces[0].Association.PublicIp' --output text)"
+        echo "Application deployee : http://${APP_IP}:5000"
+        mkdir -p zap && chmod 777 zap
+        docker run --rm -v "$(pwd)/zap:/zap/wrk:rw" \
+          ghcr.io/zaproxy/zaproxy:stable \
+          zap-baseline.py -t "http://${APP_IP}:5000" -r zap-report.html -I
+
+artifacts:
+  files:
+    - zap/zap-report.html
