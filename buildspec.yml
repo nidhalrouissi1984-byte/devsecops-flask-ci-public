@@ -1,4 +1,4 @@
- version: 0.2
+version: 0.2
 env:
   shell: bash
 phases:
@@ -11,6 +11,9 @@ phases:
       - pip install pytest
       - curl -fsSL -o /tmp/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-6.2.1.4610-linux-x64.zip
       - unzip -q /tmp/sonar-scanner.zip -d /opt
+      - curl -fsSL -o /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz
+      - tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+      - gitleaks version
   pre_build:
     commands:
       - |
@@ -46,6 +49,7 @@ phases:
 
   build:
     commands:
+      - gitleaks detect --source . --no-git --verbose --redact
       - python -m py_compile app.py
       - python -m pytest -v
       - export PATH="/opt/sonar-scanner-6.2.1.4610-linux-x64/bin:$PATH"
@@ -62,4 +66,4 @@ phases:
 
   post_build:
     commands:
-      - echo "Python tests and SonarCloud analysis completed"
+      - echo "Gitleaks, Python tests and SonarCloud analysis completed"
