@@ -61,6 +61,7 @@ phases:
           -Dsonar.tests=tests \
           -Dsonar.host.url=https://sonarcloud.io \
           -Dsonar.token="$SONAR_TOKEN" \
+          -Dsonar.qualitygate.wait=true \
           -Dsonar.exclusions="**/test_*.py,**/__pycache__/**,.venv/**,venv/**"
 
   post_build:
