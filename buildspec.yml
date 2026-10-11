@@ -5,9 +5,6 @@ env:
   variables:
     # A adapter a votre compte AWS
     ECR_REPOSITORY: "devsecops-flask"
-    ECS_CLUSTER: "devsecops-cluster"
-    ECS_SERVICE: "devsecops-flask-service"
-    CONTAINER_NAME: "devsecops-flask"
     TRIVY_VERSION: "0.56.2"
 
 phases:
@@ -102,13 +99,4 @@ phases:
       # 7. Push vers ECR
       - docker push "$IMAGE_URI"
       - docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
-      # 8. Fichier pour l'action de deploiement ECS de CodePipeline
-      - printf '[{"name":"%s","imageUri":"%s"}]' "$CONTAINER_NAME" "$IMAGE_URI" > imagedefinitions.json
-      - cat imagedefinitions.json
-      # 9. Deploiement direct sur ECS (si vous n'utilisez pas CodePipeline)
-      - aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --force-new-deployment --query "service.serviceName" --output text
-      - echo "Image $IMAGE_URI poussee dans ECR et service ECS redeploye"
-
-artifacts:
-  files:
-    - imagedefinitions.json
+      - echo "Image $IMAGE_URI poussee dans ECR"
