@@ -1,6 +1,16 @@
 version: 0.2
+
 env:
   shell: bash
+  variables:
+    # A adapter a votre compte AWS
+    ECR_REPOSITORY: "devsecops-flask-nidhal"
+    ECS_CLUSTER: "devsecops-cluster"
+    ECS_SERVICE: "devsecops-flask-service"
+    # v0.69.3 : derniere version saine connue (v0.69.4 etait compromise)
+    TRIVY_VERSION: "0.69.3"
+    TRIVY_SHA256: "1816b632dfe529869c740c0913e36bd1629cb7688bd5634f4a858c1d57c88b75"
+
 phases:
   install:
     runtime-versions:
@@ -95,3 +105,8 @@ phases:
       - docker push "$IMAGE_URI"
       - docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
       - echo "Image $IMAGE_URI poussee dans ECR"
+      # 8. Deploiement sur ECS : relance les taches avec la nouvelle image :latest
+      - aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --force-new-deployment --query "service.serviceName" --output text
+      # 9. Attend que les nouvelles taches soient en bonne sante (echoue sinon)
+      - aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
+      - echo "Deploiement ECS termine"
