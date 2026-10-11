@@ -1,15 +1,17 @@
-from app import app
+from flask import Flask, jsonify
+
+app = Flask(__name__)
 
 
-def test_home():
-    client = app.test_client()
-    response = client.get("/")
-    assert response.status_code == 200
-    assert response.data == b"Hello DevSecOps!"
+@app.route("/")
+def home():
+    return "Hello DevSecOps!"
 
 
-def test_health():
-    client = app.test_client()
-    response = client.get("/health")
-    assert response.status_code == 200
-    assert response.get_json() == {"status": "ok"}
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok"})
+
+
+if __name__ == "__main__":  # pragma: no cover
+    app.run(host="127.0.0.1", port=5000)
