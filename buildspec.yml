@@ -1,39 +1,68 @@
+
 version: 0.2
 
 env:
-shell: bash
+  shell: bash
 
 phases:
-install:
-runtime-versions:
-python: 3.11
-commands:
-- python -m pip install --upgrade pip
-- pip install -r requirements.txt
-- pip install pytest
-- curl -fsSL -o /tmp/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-6.2.1.4610-linux-x64.zip
-- unzip -q /tmp/sonar-scanner.zip -d /opt
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - python -m pip install --upgrade pip
+      - pip install -r requirements.txt
+      - pip install pytest
+      - curl -fsSL -o /tmp/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-6.2.1.4610-linux-x64.zip
+      - unzip -q /tmp/sonar-scanner.zip -d /opt
 
-pre_build:
-commands:
-- |
-export SONAR_TOKEN="$(aws secretsmanager get-secret-value --secret-id sonarcloud/token --query SecretString --output text | python -c 'import json,sys; s=sys.stdin.read().strip(); d=json.loads(s) if s.startswith("{") else s; print((d.get("SONAR_TOKEN") or d.get("token") or next(iter(d.values()))) if isinstance(d,dict) else d)')"
-- test -n "$SONAR_TOKEN" || exit 1
+  pre_build:
+    commands:
+      - |
+        set -euo pipefail
 
-build:
-commands:
-- python -m py_compile app.py
-- python -m pytest -v
-- export PATH="/opt/sonar-scanner-6.2.1.4610-linux-x64/bin:$PATH"
-- |
-sonar-scanner \
--Dsonar.organization=nidhalrouissi1984-byte \
--Dsonar.projectKey=nidhalrouissi1984-byte_devsecops-flask-ci-public \
--Dsonar.sources=. \
--Dsonar.host.url=https://sonarcloud.io \
--Dsonar.token="$SONAR_TOKEN" \
--Dsonar.exclusions="**/test_*.py,**/__pycache__/**"
+        SECRET_JSON="$(aws secretsmanager get-secret-value \
+          --secret-id sonarcloud/token \
+          --query SecretString \
+          --output text)"
 
-post_build:
-commands:
-- echo "Python tests and SonarCloud analysis completed"
+        export SONAR_TOKEN="$(python -c '
+        import json, sys
+        s = sys.stdin.read().strip()
+        try:
+            d = json.loads(s)
+        except json.JSONDecodeError:
+            d = s
+
+        if isinstance(d, dict):
+            token = d.get("SONAR_TOKEN") or d.get("token")
+            if not token and len(d) == 1:
+                token = next(iter(d.values()))
+        else:
+            token = d
+
+        if not isinstance(token, str) or not token.strip():
+            sys.exit("SonarCloud token missing or invalid")
+        print(token.strip())
+        ' <<< "$SECRET_JSON")"
+
+        test -n "$SONAR_TOKEN"
+        echo "SonarCloud token retrieved successfully"
+
+  build:
+    commands:
+      - python -m py_compile app.py
+      - python -m pytest -v
+      - export PATH="/opt/sonar-scanner-6.2.1.4610-linux-x64/bin:$PATH"
+      - |
+        sonar-scanner \
+          -Dsonar.organization=nidhalrouissi1984-byte \
+          -Dsonar.projectKey=nidhalrouissi1984-byte_devsecops-flask-ci-public \
+          -Dsonar.sources=. \
+          -Dsonar.tests=tests \
+          -Dsonar.host.url=https://sonarcloud.io \
+          -Dsonar.token="$SONAR_TOKEN" \
+          -Dsonar.exclusions="**/test_*.py,**/__pycache__/**,.venv/**,venv/**"
+
+  post_build:
+    commands:
+      - echo "Python tests and SonarCloud analysis completed"
