@@ -105,6 +105,10 @@ phases:
       - docker push "$IMAGE_URI"
       - docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
       - echo "Image $IMAGE_URI poussee dans ECR"
+      # Diagnostic : affiche ce que CodeBuild voit dans ECS
+      - echo "Region=$AWS_DEFAULT_REGION Cluster=$ECS_CLUSTER Service=$ECS_SERVICE"
+      - aws ecs list-clusters --output text || true
+      - aws ecs list-services --cluster "$ECS_CLUSTER" --output text || true
       # 8. Deploiement sur ECS : relance les taches avec la nouvelle image :latest
       - aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --force-new-deployment --query "service.serviceName" --output text
       # 9. Attend que les nouvelles taches soient en bonne sante (echoue sinon)
